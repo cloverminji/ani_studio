@@ -5,3 +5,8 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 *.log
+data/
+certs/
+temp_edge/
+public/uploads/*
+!public/uploads/.gitkeep

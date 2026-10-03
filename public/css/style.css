@@ -616,54 +616,79 @@ body {
   object-fit: contain;
 }
 
-/* 캔버스 하단 툴바 */
+/* 캔버스 하단 툴바 - 도안과 완벽한 너비 균형 및 요소 정렬 */
 .drawing-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 580px;
+  max-width: 680px;
+  min-width: 460px;
+  box-sizing: border-box;
   background: var(--bg-card);
   border: 2.5px solid var(--sketch-border);
   border-radius: var(--radius-sketch-1);
-  padding: 6px 14px;
-  gap: 10px;
-  height: 52px;
-  min-height: 52px;
+  padding: 5px 12px;
+  gap: 6px;
+  height: 50px;
+  min-height: 50px;
   box-shadow: var(--sketch-shadow);
+  transition: width 0.15s ease, max-width 0.15s ease;
 }
 
 .tool-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* 툴바 그룹 간 스케치 스타일 세로 구분선 */
+.tool-separator {
+  width: 1.5px;
+  height: 22px;
+  background: var(--sketch-border);
+  opacity: 0.35;
+  margin: 0 1px;
+  flex-shrink: 0;
 }
 
 .tool-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid var(--sketch-border);
   color: #fff;
-  padding: 6px 14px;
-  min-width: 76px;
-  height: 38px;
+  padding: 4px 8px;
+  min-width: 58px;
+  height: 35px;
   border-radius: var(--radius-sketch-1);
   font-family: var(--font-sketch);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   white-space: nowrap;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
-.tool-btn span {
-  font-size: 1.05rem;
+.tool-btn span,
+.tool-btn-icon {
+  font-size: 1rem;
   display: inline-flex;
   align-items: center;
+}
+
+.tool-btn-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
 }
 
 .tool-btn:hover {
@@ -675,16 +700,25 @@ body {
   background: var(--marker-cyan);
   color: #121526;
   border-color: #000;
-  box-shadow: 3px 3px 0px #000;
+  box-shadow: 2.5px 2.5px 0px #000;
   font-weight: 700;
-  transform: rotate(-1.5deg) scale(1.05);
+  transform: rotate(-1.5deg) scale(1.04);
 }
 
 /* 실행취소/다시실행/전체지우기 액션 단추 */
 .tool-group:last-child .tool-btn {
-  min-width: 38px;
-  width: 38px;
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
   padding: 0;
+  font-size: 0.95rem;
+}
+
+/* 휴지통 버튼 호버 시 포인트 효과 */
+#btnClearCanvas:hover {
+  background: rgba(239, 71, 111, 0.3);
+  border-color: var(--marker-pink);
+  transform: translateY(-2px) rotate(2deg);
 }
 
 /* 팔레트 패널 (우측 폭 2cm 확장에 맞춘 그리드) */
@@ -718,12 +752,13 @@ body {
 .brush-size-slider-box {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   font-family: var(--font-sketch);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--sketch-ink-muted);
   white-space: nowrap;
+  padding: 0 1px;
 }
 
 .brush-size-slider-box span {
@@ -731,9 +766,19 @@ body {
 }
 
 .brush-size-slider-box input[type="range"] {
-  flex: 1;
+  width: 65px;
+  min-width: 45px;
+  max-width: 100px;
   accent-color: var(--marker-yellow);
   cursor: pointer;
+}
+
+#brushSizeValue {
+  display: inline-block;
+  min-width: 28px;
+  text-align: right;
+  color: var(--marker-yellow);
+  font-size: 0.9rem;
 }
 
 /* 우측 액션 & AI 변환 패널 */

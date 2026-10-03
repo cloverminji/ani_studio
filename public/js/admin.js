@@ -15,7 +15,7 @@ class AdminDashboard {
     this.characters = [];
     this.config = {
       characterLifespan: 900,
-      maxCharacters: 1
+      maxCharacters: 12
     };
 
     this.initElements();
@@ -32,6 +32,8 @@ class AdminDashboard {
     this.lifespanVal = document.getElementById('settingLifespanVal');
     this.maxCharsSlider = document.getElementById('settingMaxChars');
     this.maxCharsVal = document.getElementById('settingMaxCharsVal');
+    if (this.maxCharsSlider) this.maxCharsSlider.value = this.config.maxCharacters;
+    if (this.maxCharsVal) this.maxCharsVal.textContent = `${this.config.maxCharacters}개`;
     this.btnClearAll = document.getElementById('btnClearAllChars');
 
     // 1. 테마 추가/업로드 요소
@@ -217,6 +219,7 @@ class AdminDashboard {
           this.config = data.config;
           if (this.lifespanSlider) this.lifespanSlider.value = this.config.characterLifespan;
           if (this.maxCharsSlider) this.maxCharsSlider.value = this.config.maxCharacters;
+          if (this.maxCharsVal) this.maxCharsVal.textContent = `${this.config.maxCharacters}개`;
         }
         this.renderThemeCards();
       }
@@ -522,7 +525,9 @@ class AdminDashboard {
   // 1. 비디오 파일 선택 및 미리보기 처리
   handleVideoFile(file) {
     if (!file) return;
-    if (!file.type.includes('video/mp4') && !file.type.includes('video/webm')) {
+    const isVideoType = file.type && (file.type.includes('video/mp4') || file.type.includes('video/webm'));
+    const isVideoExt = /\.(mp4|webm)$/i.test(file.name || '');
+    if (!isVideoType && !isVideoExt) {
       alert('MP4 또는 WebM 형식의 비디오 파일만 지원됩니다.');
       return;
     }

@@ -1,14 +1,19 @@
 {
-  "name": "media-wall",
+  "name": "waglewagle-studio",
   "version": "1.0.0",
-  "description": "Interactive AI Media Wall & Student Drawing Studio",
+  "description": "WagleWagle Studio - Interactive AI Media Wall & Student Drawing Studio",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:https": "node scripts/generate-cert.js && node server.js",
+    "cert:gen": "node scripts/generate-cert.js",
     "dev": "node server.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "express": "^4.21.2",
+    "selfsigned": "^5.5.0",
+    "socket.io": "^4.8.4",
     "ws": "^8.18.0"
   }
 }

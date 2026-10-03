@@ -229,6 +229,28 @@ function setupPaletteAndTools(drawingCanvas) {
       }
     });
   }
+
+  // 도안(캔버스 프레임)과 하단 툴바의 너비 및 배치 균형 완벽 동기화
+  const canvasFrame = document.querySelector('.canvas-frame');
+  const toolbar = document.getElementById('drawingToolbar') || document.querySelector('.drawing-toolbar');
+  if (canvasFrame && toolbar) {
+    const syncToolbarWidth = () => {
+      const frameWidth = canvasFrame.offsetWidth;
+      if (frameWidth > 0) {
+        // 도안 프레임 폭과 정확하게 1:1로 일치시킴 (도안이 좁을 때 최소 480px 보장)
+        const targetWidth = Math.max(frameWidth, 480);
+        toolbar.style.width = `${targetWidth}px`;
+        toolbar.style.maxWidth = `${targetWidth}px`;
+      }
+    };
+
+    syncToolbarWidth();
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => syncToolbarWidth());
+      ro.observe(canvasFrame);
+    }
+    window.addEventListener('resize', syncToolbarWidth);
+  }
 }
 
 /**
@@ -325,13 +347,19 @@ function setupAIConvertPipeline(drawingCanvas, mediaWall) {
 function setupNetworkSync(mediaWall, adminDashboard) {
   if (!window.mediaWallNet) return;
 
-  // 1. 초기 상태 수신 (테마, 설정)
+  // 1. 초기 상태 수신 (테마, 설정, 기존 캐릭터)
   window.mediaWallNet.on('init_state', (data) => {
     if (data.currentTheme) {
       mediaWall.setTheme(data.currentTheme);
     }
     if (data.config) {
       mediaWall.config = { ...mediaWall.config, ...data.config };
+    }
+    if (data.characters && Array.isArray(data.characters)) {
+      data.characters.forEach(char => {
+        mediaWall.spawnCharacter(char);
+        if (adminDashboard) adminDashboard.trackCharacter(char);
+      });
     }
   });
 
@@ -388,9 +416,10 @@ function setupNetworkSync(mediaWall, adminDashboard) {
 }
 
 /**
- * 뷰 모드 라우팅 및 스위칭
+ * 뷰 모드 라우팅 및 스위칭 (마스터 관리자 비밀번호 보호 포함)
  */
 function setupViewModeSwitcher(mediaWall) {
+  const ADMIN_PASSWORD = '2326';
   const modeBtns = document.querySelectorAll('.mode-btn');
   const views = {
     wall: document.getElementById('viewMediaWall'),
@@ -398,7 +427,57 @@ function setupViewModeSwitcher(mediaWall) {
     admin: document.getElementById('viewAdminDashboard')
   };
 
-  function switchMode(mode) {
+  // 관리자 인증 모달 요소
+  const authModal = document.getElementById('adminAuthModalOverlay');
+  const authForm = document.getElementById('adminAuthForm');
+  const authPasswordInput = document.getElementById('inputAdminPassword');
+  const authError = document.getElementById('adminAuthError');
+  const btnCloseAuth = document.getElementById('btnCloseAdminAuthModal');
+  const btnCancelAuth = document.getElementById('btnCancelAdminAuth');
+  const btnLogout = document.getElementById('btnAdminLogout');
+
+  let currentActiveMode = 'wall';
+
+  function isAdminAuthenticated() {
+    return sessionStorage.getItem('media_wall_admin_auth') === 'true';
+  }
+
+  function openAdminAuthModal() {
+    if (!authModal) return;
+    if (authError) authError.style.display = 'none';
+    if (authPasswordInput) {
+      authPasswordInput.value = '';
+      authPasswordInput.style.borderColor = '';
+    }
+    authModal.classList.add('active');
+    setTimeout(() => {
+      if (authPasswordInput) authPasswordInput.focus();
+    }, 120);
+  }
+
+  function closeAdminAuthModal() {
+    if (!authModal) return;
+    authModal.classList.remove('active');
+    if (authPasswordInput) authPasswordInput.value = '';
+    if (authError) authError.style.display = 'none';
+
+    // 인증 취소 시 현재 화면 모드로 URL 동기화
+    const url = new URL(window.location);
+    url.searchParams.set('mode', currentActiveMode);
+    window.history.replaceState({}, '', url);
+  }
+
+  function requestSwitchMode(mode) {
+    if (mode === 'admin' && !isAdminAuthenticated()) {
+      openAdminAuthModal();
+      return;
+    }
+    performSwitchMode(mode);
+  }
+
+  function performSwitchMode(mode) {
+    currentActiveMode = mode;
+
     modeBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.mode === mode);
     });
@@ -413,6 +492,16 @@ function setupViewModeSwitcher(mediaWall) {
     if (mode === 'wall') {
       mediaWall.resizeCanvases();
       mediaWall.initThemeParticles();
+    } else if (mode === 'draw') {
+      setTimeout(() => {
+        const canvasFrame = document.querySelector('.canvas-frame');
+        const toolbar = document.getElementById('drawingToolbar') || document.querySelector('.drawing-toolbar');
+        if (canvasFrame && toolbar && canvasFrame.offsetWidth > 0) {
+          const targetWidth = Math.max(canvasFrame.offsetWidth, 480);
+          toolbar.style.width = `${targetWidth}px`;
+          toolbar.style.maxWidth = `${targetWidth}px`;
+        }
+      }, 60);
     }
 
     // URL 쿼리 파라미터 갱신 (새로고침 없이)
@@ -421,17 +510,91 @@ function setupViewModeSwitcher(mediaWall) {
     window.history.replaceState({}, '', url);
   }
 
+  // 관리자 인증 폼 제출 이벤트
+  if (authForm) {
+    authForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const entered = (authPasswordInput && authPasswordInput.value.trim()) || '';
+      if (entered === ADMIN_PASSWORD) {
+        sessionStorage.setItem('media_wall_admin_auth', 'true');
+        closeAdminAuthModal();
+        performSwitchMode('admin');
+        if (window.soundEngine && typeof window.soundEngine.playPopSound === 'function') {
+          window.soundEngine.playPopSound();
+        }
+        if (window.showToast) {
+          window.showToast('🔓 관리자 인증이 완료되었습니다.');
+        }
+      } else {
+        if (authError) authError.style.display = 'block';
+        if (authPasswordInput) {
+          authPasswordInput.style.borderColor = '#f72585';
+          authPasswordInput.value = '';
+          authPasswordInput.focus();
+        }
+        if (window.soundEngine && typeof window.soundEngine.playPopSound === 'function') {
+          window.soundEngine.playPopSound();
+        }
+      }
+    });
+  }
+
+  // 인증 모달 취소/닫기 이벤트
+  if (btnCloseAuth) {
+    btnCloseAuth.addEventListener('click', closeAdminAuthModal);
+  }
+  if (btnCancelAuth) {
+    btnCancelAuth.addEventListener('click', closeAdminAuthModal);
+  }
+  if (authModal) {
+    authModal.addEventListener('click', (e) => {
+      if (e.target === authModal) {
+        closeAdminAuthModal();
+      }
+    });
+  }
+
+  // 관리자 로그아웃 버튼 이벤트
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      sessionStorage.removeItem('media_wall_admin_auth');
+      performSwitchMode('wall');
+      if (window.soundEngine && typeof window.soundEngine.playPopSound === 'function') {
+        window.soundEngine.playPopSound();
+      }
+      if (window.showToast) {
+        window.showToast('🔒 관리자 로그아웃 되었습니다.');
+      }
+    });
+  }
+
+  // 상단 네비게이션 모드 전환 버튼
   modeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      switchMode(btn.dataset.mode);
-      if (window.soundEngine) window.soundEngine.playPopSound();
+      requestSwitchMode(btn.dataset.mode);
+      if (window.soundEngine && typeof window.soundEngine.playPopSound === 'function') {
+        window.soundEngine.playPopSound();
+      }
     });
   });
 
   // URL 쿼리에 지정된 초기 모드 확인 (?mode=draw 또는 ?mode=wall 또는 ?mode=admin)
   const params = new URLSearchParams(window.location.search);
   const initialMode = params.get('mode') || 'wall';
-  switchMode(initialMode);
+
+  if (initialMode === 'admin') {
+    if (isAdminAuthenticated()) {
+      performSwitchMode('admin');
+    } else {
+      performSwitchMode('wall');
+      openAdminAuthModal();
+    }
+  } else {
+    performSwitchMode(initialMode);
+  }
+
+  // 전역 노출 (필요 시 외부 연동)
+  window.switchAppMode = requestSwitchMode;
 }
 
 /**
@@ -520,6 +683,8 @@ function setupStudioVideoUpload(mediaWall) {
       currentVideoBase64 = evt.target.result;
       if (videoPreview) {
         videoPreview.src = currentVideoBase64;
+        videoPreview.load();
+        videoPreview.play().catch(() => {});
       }
       if (previewSection) {
         previewSection.style.display = 'flex';
@@ -590,8 +755,16 @@ function setupStudioVideoUpload(mediaWall) {
           window.mediaWallNet.sendCharacter(videoChar);
         }
 
-        if (window.soundEngine) window.soundEngine.playFanfare();
-        window.showToast(`🚀 '${name}' 애니메이션 비디오가 미디어월로 전송되었습니다!`);
+        if (window.soundEngine) {
+          if (typeof window.soundEngine.playFanfare === 'function') {
+            window.soundEngine.playFanfare();
+          } else if (typeof window.soundEngine.playLaunchSound === 'function') {
+            window.soundEngine.playLaunchSound();
+          }
+        }
+        if (window.showToast) {
+          window.showToast(`🚀 '${name}' 애니메이션 비디오가 미디어월로 전송되었습니다!`);
+        }
 
         btnSendVideo.innerHTML = '<span>✅</span> 전송 완료!';
         setTimeout(() => {
@@ -607,4 +780,32 @@ function setupStudioVideoUpload(mediaWall) {
     });
   }
 }
+
+/**
+ * 서비스 워커(Service Worker) 등록 및 오프라인 PWA 지원
+ * - localhost 또는 HTTPS 환경에서는 완벽 캐싱 활성화
+ * - 사설 IP(192.168.x.x) HTTP 환경에서는 브라우저 보안 정책에 따라 조용히 폴백
+ */
+function setupServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      const isSecure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => {
+          console.log('✅ [ServiceWorker] 오프라인 캐싱 서비스 워커 등록 성공! (Scope:', reg.scope, ')');
+        })
+        .catch((err) => {
+          if (!isSecure) {
+            console.info('ℹ️ [ServiceWorker] 사설 IP HTTP 환경에서는 브라우저 보안 정책상 Service Worker가 비활성화되었습니다. (HTTPS 접속 시 자동 활성화됩니다)');
+          } else {
+            console.warn('⚠️ [ServiceWorker] 등록 실패:', err.message);
+          }
+        });
+    });
+  }
+}
+
+// 서비스 워커 초기화 실행
+setupServiceWorker();
+
 

@@ -200,6 +200,10 @@ class SoundEngine {
     }
     return this.isMuted;
   }
+
+  playFanfare() {
+    this.playLaunchSound();
+  }
 }
 
 window.soundEngine = new SoundEngine();

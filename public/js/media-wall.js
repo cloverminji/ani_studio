@@ -28,7 +28,7 @@ class MediaWallRenderer {
 
     this.config = {
       characterLifespan: 900, // 기본 15분 (초)
-      maxCharacters: 1 // 미디어월 전송 시 캐릭터 1개만 유지
+      maxCharacters: 12 // 미디어월 최대 캐릭터 동시 참여 수 (기본 12개)
     };
 
     this.isRunning = false;
@@ -68,8 +68,8 @@ class MediaWallRenderer {
       let hitChar = null;
       for (let i = this.characters.length - 1; i >= 0; i--) {
         const c = this.characters[i];
-        const halfW = (c.renderW * c.scale) / 2;
-        const halfH = (c.renderH * c.scale) / 2;
+        const halfW = c.type === 'video' ? (c.renderW * c.scale * 0.35) / 2 : (c.renderW * c.scale) / 2;
+        const halfH = c.type === 'video' ? (c.renderH * c.scale * 0.50) / 2 : (c.renderH * c.scale) / 2;
 
         if (x >= c.x - halfW && x <= c.x + halfW &&
             y >= c.y - halfH && y <= c.y + halfH) {
@@ -96,8 +96,10 @@ class MediaWallRenderer {
 
   // 캐릭터 클릭 시 반응 (점프 + 하트 파티클 + 말풍선 + 사운드)
   interactWithCharacter(c) {
-    c.vy = -12; // 깜짝 점프
-    c.spinAngle += Math.PI * 2;
+    if (c.type !== 'video') {
+      c.vy = -12; // 깜짝 점프
+      c.spinAngle += Math.PI * 2;
+    }
     if (window.soundEngine) window.soundEngine.playPopSound();
 
     // 하트 & 별가루 파티클 방출
@@ -216,11 +218,25 @@ class MediaWallRenderer {
 
   // 새 캐릭터 스폰 (송출 - 이미지 또는 MP4 비디오 지원)
   spawnCharacter(charData) {
-    // 요구사항: 미디어월에 전송하면 캐릭터도 1개만으로 수정
-    // 기존에 있던 모든 캐릭터를 즉시 빠른 페이드아웃(0.35초)으로 퇴장시켜 항상 1개만 유지
-    this.characters.forEach(old => {
-      old.remainingTime = Math.min(old.remainingTime, 0.35);
-    });
+    if (!charData || !charData.id) return;
+
+    // 중복 스폰 방지: 이미 미디어월에 살아있는 캐릭터 ID인 경우 중복 생성 차단
+    if (this.characters.some(c => c.id === charData.id)) {
+      console.log(`[MediaWall] 중복 캐릭터 스폰 차단 (ID: ${charData.id})`);
+      return;
+    }
+
+    // 최대 동시 표시 캐릭터 수 초과 시 가장 오래된 캐릭터 자연스러운 페이드아웃 퇴장
+    const maxChars = this.config.maxCharacters || 12;
+    while (this.characters.length >= maxChars) {
+      const oldest = this.characters.find(c => c.remainingTime > 1.0);
+      if (oldest) {
+        oldest.remainingTime = Math.min(oldest.remainingTime, 1.0);
+        break;
+      } else {
+        break;
+      }
+    }
 
     const w = this.charCanvas.width;
     const h = this.charCanvas.height;
@@ -240,7 +256,10 @@ class MediaWallRenderer {
     // 1. Animated Drawings MP4 비디오 캐릭터인 경우
     if (charData.type === 'video') {
       const video = document.createElement('video');
-      video.crossOrigin = 'anonymous';
+      // data: URL의 경우 crossOrigin 설정 시 null origin 보안 에러가 날 수 있으므로 원격 URL일 때만 적용
+      if (charData.videoUrl && !charData.videoUrl.startsWith('data:')) {
+        video.crossOrigin = 'anonymous';
+      }
       video.src = charData.videoUrl;
       video.loop = true;
       video.muted = true;
@@ -250,15 +269,20 @@ class MediaWallRenderer {
       const chromaCanvas = document.createElement('canvas');
       const chromaCtx = chromaCanvas.getContext('2d', { willReadFrequently: true });
 
+      let isReadyTriggered = false;
       const onReady = () => {
-        video.play().catch(() => {});
+        if (isReadyTriggered) return;
+        isReadyTriggered = true;
+
+        video.play().catch(e => console.warn('Video auto-play suppressed:', e));
         const vw = video.videoWidth || 320;
         const vh = video.videoHeight || 320;
 
-        chromaCanvas.width = Math.min(vw, 360);
-        chromaCanvas.height = Math.min(vh, 360);
+        chromaCanvas.width = Math.min(vw, 480);
+        chromaCanvas.height = Math.min(vh, 480);
 
-        const targetW = 200 + Math.random() * 40;
+        // 요구사항: MP4 파일 캐릭터는 수정 전 사이즈의 2배로 재조절 (약 440px)
+        const targetW = (200 + Math.random() * 40) * 2;
         const targetH = (vh / vw) * targetW;
 
         const newChar = {
@@ -268,6 +292,8 @@ class MediaWallRenderer {
           video: video,
           chromaCanvas: chromaCanvas,
           chromaCtx: chromaCtx,
+          floodVisited: new Uint8Array(chromaCanvas.width * chromaCanvas.height),
+          floodQueue: new Int32Array(chromaCanvas.width * chromaCanvas.height),
           useChromaKey: charData.chromaKey !== false,
           renderW: targetW,
           renderH: targetH,
@@ -294,10 +320,16 @@ class MediaWallRenderer {
         this.updateStatsDisplay();
       };
 
+      video.onerror = (err) => {
+        console.error('Video character load error:', err, charData.videoUrl);
+      };
+
       if (video.readyState >= 1) {
         onReady();
       } else {
         video.onloadeddata = onReady;
+        video.oncanplay = onReady;
+        video.onloadedmetadata = onReady;
       }
       return;
     }
@@ -306,7 +338,8 @@ class MediaWallRenderer {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      const targetW = 180 + Math.random() * 40;
+      // 요구사항: 드로잉스튜디오 캐릭터는 기존 사이즈에서 1/2로 축소 (약 100px)
+      const targetW = (180 + Math.random() * 40) * 0.5;
       const targetH = (charData.height / charData.width) * targetW;
 
       const newChar = {
@@ -461,7 +494,7 @@ class MediaWallRenderer {
       else if (c.vx < -0.1) c.flipX = -1;
 
       // 요구사항: X 좌표는 항상 내부 80%를 움직이는 공간으로 설정 (좌우 여백 10%씩)
-      const padX = (c.renderW * c.scale) / 2;
+      const padX = c.type === 'video' ? (c.renderW * c.scale * 0.35) / 2 : (c.renderW * c.scale) / 2;
       const minX = w * 0.10 + padX;
       const maxX = w * 0.90 - padX;
 
@@ -493,7 +526,10 @@ class MediaWallRenderer {
       }
 
       // 모션 특화 동작
-      if (c.motion === 'walk') {
+      if (c.type === 'video') {
+        // MP4 비디오 캐릭터는 자체 애니메이션이 기적용되어 있으므로 미디어월에서 외적 점프/요동 물리 모션을 추가하지 않음
+        c.vy = 0;
+      } else if (c.motion === 'walk') {
         c.vy = Math.sin(c.animTime * 2) * (activeCount <= 2 ? 0.4 : 0.8);
       } else if (c.motion === 'jump') {
         c.vy += 0.35; // 중력
@@ -622,7 +658,7 @@ class MediaWallRenderer {
     // 1. 캐릭터 그리기
     for (let i = 0; i < this.characters.length; i++) {
       const c = this.characters[i];
-      if (!c.img || c.opacity <= 0) continue;
+      if ((!c.img && !c.video) || c.opacity <= 0) continue;
 
       ctx.save();
       ctx.globalAlpha = c.opacity;
@@ -635,19 +671,22 @@ class MediaWallRenderer {
       let sqX = 1;
       let sqY = 1;
 
-      if (c.motion === 'walk') {
-        bounceY = Math.abs(Math.sin(t * 3)) * -14;
-        rotAngle = Math.sin(t * 3) * 0.1;
-      } else if (c.motion === 'jump') {
-        const j = Math.sin(t * 2.5);
-        if (j < 0) { sqX = 1.15; sqY = 0.85; }
-        else { sqX = 0.9; sqY = 1.1; }
-      } else if (c.motion === 'dance') {
-        rotAngle = Math.sin(t * 4) * 0.25;
-        sqX = 1 + Math.sin(t * 8) * 0.08;
-        sqY = 1 + Math.sin(t * 8) * 0.08;
-      } else if (c.motion === 'float') {
-        rotAngle = Math.sin(t * 1.5) * 0.12;
+      // MP4 비디오는 기본 애니메이션이 기적용되어 있으므로 미디어월 외적 모션 변형(바운스/기울기/스쿼시)을 배제
+      if (c.type !== 'video') {
+        if (c.motion === 'walk') {
+          bounceY = Math.abs(Math.sin(t * 3)) * -14;
+          rotAngle = Math.sin(t * 3) * 0.1;
+        } else if (c.motion === 'jump') {
+          const j = Math.sin(t * 2.5);
+          if (j < 0) { sqX = 1.15; sqY = 0.85; }
+          else { sqX = 0.9; sqY = 1.1; }
+        } else if (c.motion === 'dance') {
+          rotAngle = Math.sin(t * 4) * 0.25;
+          sqX = 1 + Math.sin(t * 8) * 0.08;
+          sqY = 1 + Math.sin(t * 8) * 0.08;
+        } else if (c.motion === 'float') {
+          rotAngle = Math.sin(t * 1.5) * 0.12;
+        }
       }
 
       ctx.translate(0, bounceY);
@@ -657,27 +696,154 @@ class MediaWallRenderer {
       // 하단 부드러운 그림자
       ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
       ctx.beginPath();
-      ctx.ellipse(0, c.renderH / 2, (c.renderW * 0.5) / 2, 8, 0, 0, Math.PI * 2);
+      const shadowY = c.type === 'video' ? c.renderH * 0.35 : c.renderH / 2;
+      const shadowW = c.type === 'video' ? (c.renderW * 0.32) / 2 : (c.renderW * 0.5) / 2;
+      ctx.ellipse(0, shadowY, shadowW, 8, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // 캐릭터 렌더링 (비디오 또는 이미지)
       if (c.type === 'video' && c.video && c.video.readyState >= 2) {
+        let renderedWithChroma = false;
         if (c.useChromaKey && c.chromaCanvas && c.chromaCtx) {
-          const cw = c.chromaCanvas.width;
-          const ch = c.chromaCanvas.height;
-          c.chromaCtx.drawImage(c.video, 0, 0, cw, ch);
-          const frame = c.chromaCtx.getImageData(0, 0, cw, ch);
-          const d = frame.data;
-          // 흰색 배경 자동 누끼 투명화 (Meta Animated Drawings 최적화)
-          for (let p = 0; p < d.length; p += 4) {
-            const r = d[p], g = d[p + 1], b = d[p + 2];
-            if (r > 220 && g > 220 && b > 220) {
-              d[p + 3] = 0;
+          try {
+            const cw = c.chromaCanvas.width;
+            const ch = c.chromaCanvas.height;
+            const totalPixels = cw * ch;
+            c.chromaCtx.drawImage(c.video, 0, 0, cw, ch);
+            const frame = c.chromaCtx.getImageData(0, 0, cw, ch);
+            const d = frame.data;
+
+            // 1. 하단 메타 애니메이티드 드로잉 로고/워터마크 영역 기준선 (하단 13% 영역)
+            const watermarkStartY = Math.floor(ch * 0.87);
+            const watermarkStartX = Math.floor(cw * 0.32);
+
+            // 2. 외곽 플러드필 버퍼 준비 (할당 재사용으로 60fps 유지)
+            if (!c.floodVisited || c.floodVisited.length !== totalPixels) {
+              c.floodVisited = new Uint8Array(totalPixels);
+              c.floodQueue = new Int32Array(totalPixels);
             }
+            const visited = c.floodVisited;
+            const queue = c.floodQueue;
+            visited.fill(0);
+
+            let head = 0;
+            let tail = 0;
+
+            // 배경 판별 헬퍼 (MP4 압축 노이즈 감안한 적응형 밝기/채도 판정)
+            const isBgPixel = (x, y) => {
+              // 워터마크 영역은 무조건 배경으로 간주하여 로고 텍스트 완전 제거
+              if (y >= watermarkStartY && (x >= watermarkStartX || y >= ch * 0.91)) {
+                return true;
+              }
+
+              const idx = (y * cw + x) * 4;
+              const r = d[idx];
+              const g = d[idx + 1];
+              const b = d[idx + 2];
+
+              const brightness = (r + g + b) / 3;
+              const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(b - r));
+
+              // 순수 흰색 또는 밝은 압축 노이즈 (무채색/오프화이트)
+              return (brightness > 185 && maxDiff < 38) || (brightness > 218);
+            };
+
+            // 캔버스 4개 외곽 테두리 픽셀을 시작 시드로 큐에 삽입
+            for (let x = 0; x < cw; x++) {
+              if (isBgPixel(x, 0) && !visited[x]) {
+                visited[x] = 1;
+                queue[tail++] = x;
+              }
+              const bIdx = (ch - 1) * cw + x;
+              if (isBgPixel(x, ch - 1) && !visited[bIdx]) {
+                visited[bIdx] = 1;
+                queue[tail++] = bIdx;
+              }
+            }
+            for (let y = 1; y < ch - 1; y++) {
+              const lIdx = y * cw;
+              if (isBgPixel(0, y) && !visited[lIdx]) {
+                visited[lIdx] = 1;
+                queue[tail++] = lIdx;
+              }
+              const rIdx = y * cw + (cw - 1);
+              if (isBgPixel(cw - 1, y) && !visited[rIdx]) {
+                visited[rIdx] = 1;
+                queue[tail++] = rIdx;
+              }
+            }
+
+            // 4방향 외곽 BFS 플러드필: 외곽과 연결된 모든 배경만 투명화 (캐릭터 내부 흰색은 안전 보존)
+            while (head < tail) {
+              const curr = queue[head++];
+              d[curr * 4 + 3] = 0; // 완전 투명화
+
+              const cx = curr % cw;
+              const cy = (curr / cw) | 0;
+
+              if (cx > 0) {
+                const n = curr - 1;
+                if (!visited[n] && isBgPixel(cx - 1, cy)) {
+                  visited[n] = 1;
+                  queue[tail++] = n;
+                }
+              }
+              if (cx < cw - 1) {
+                const n = curr + 1;
+                if (!visited[n] && isBgPixel(cx + 1, cy)) {
+                  visited[n] = 1;
+                  queue[tail++] = n;
+                }
+              }
+              if (cy > 0) {
+                const n = curr - cw;
+                if (!visited[n] && isBgPixel(cx, cy - 1)) {
+                  visited[n] = 1;
+                  queue[tail++] = n;
+                }
+              }
+              if (cy < ch - 1) {
+                const n = curr + cw;
+                if (!visited[n] && isBgPixel(cx, cy + 1)) {
+                  visited[n] = 1;
+                  queue[tail++] = n;
+                }
+              }
+            }
+
+            // 3. 하단 로고 워터마크 영역의 잔여 글자 픽셀 100% 강제 투명화
+            for (let y = watermarkStartY; y < ch; y++) {
+              for (let x = watermarkStartX; x < cw; x++) {
+                d[(y * cw + x) * 4 + 3] = 0;
+              }
+            }
+            // 하단 최하단 8% 라인은 전체 워터마크 밴드로 완전 투명화
+            const bottomBandY = Math.floor(ch * 0.92);
+            for (let y = bottomBandY; y < ch; y++) {
+              for (let x = 0; x < cw; x++) {
+                d[(y * cw + x) * 4 + 3] = 0;
+              }
+            }
+
+            // 4. 사각 프레임 경계선 잔여물(최외곽 3px 테두리) 완전 소거 (다른 캐릭터 가림 방지)
+            for (let y = 0; y < ch; y++) {
+              for (let x = 0; x < cw; x++) {
+                if (x < 3 || x >= cw - 3 || y < 3 || y >= ch - 3) {
+                  const p = (y * cw + x) * 4;
+                  const b = (d[p] + d[p + 1] + d[p + 2]) / 3;
+                  if (b > 150) d[p + 3] = 0;
+                }
+              }
+            }
+
+            c.chromaCtx.putImageData(frame, 0, 0);
+            ctx.drawImage(c.chromaCanvas, -c.renderW / 2, -c.renderH / 2, c.renderW, c.renderH);
+            renderedWithChroma = true;
+          } catch (chromaErr) {
+            renderedWithChroma = false;
           }
-          c.chromaCtx.putImageData(frame, 0, 0);
-          ctx.drawImage(c.chromaCanvas, -c.renderW / 2, -c.renderH / 2, c.renderW, c.renderH);
-        } else {
+        }
+        if (!renderedWithChroma) {
           ctx.drawImage(c.video, -c.renderW / 2, -c.renderH / 2, c.renderW, c.renderH);
         }
       } else if (c.img) {
@@ -693,7 +859,9 @@ class MediaWallRenderer {
 
       const tagText = c.name;
       const tagWidth = ctx.measureText(tagText).width + 20;
-      const tagY = c.y - (c.renderH * c.scale) / 2 - 18;
+      const tagY = c.type === 'video'
+        ? c.y - (c.renderH * c.scale) * 0.28 - 18
+        : c.y - (c.renderH * c.scale) / 2 - 18;
 
       // 스케치 그림자
       ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';

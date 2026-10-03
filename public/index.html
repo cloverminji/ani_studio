@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AI 인터랙티브 미디어월 & 드로잉 스튜디오</title>
+  <title>WagleWagle Studio - AI 인터랙티브 미디어월 & 드로잉 스튜디오</title>
   <meta name="description" content="학생들이 직접 그린 도안을 AI로 생생하게 애니메이션화하여 대형 미디어월에 실시간 송출하는 인터랙티브 미디어아트 플랫폼">
   <!-- 모던 한글 폰트 & 스케치 손글씨 웹폰트 로드 -->
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=5">
 </head>
 <body>
 
@@ -20,7 +20,7 @@
   <header class="global-nav" id="globalNav">
     <div class="brand-badge" id="brandLogo">
       <div class="brand-logo-icon">🎨</div>
-      <div class="brand-title">MEDIA WALL STUDIO</div>
+      <div class="brand-title">WagleWagle Studio</div>
     </div>
 
     <!-- 모드 스위처 (미디어월 / 학생 스튜디오 / 마스터 관리자) -->
@@ -132,7 +132,7 @@
           </div>
 
           <!-- 하단 툴바 -->
-          <div class="drawing-toolbar">
+          <div class="drawing-toolbar" id="drawingToolbar">
             <div class="tool-group">
               <button class="tool-btn active" id="toolBrush">
                 <span>🖌️</span> 붓
@@ -141,15 +141,19 @@
                 <span>🪣</span> 채우기
               </button>
               <button class="tool-btn" id="toolEraser">
-                <span>🧹</span> 지우개
+                <img src="/images/eraser.png" alt="지우개" class="tool-btn-icon" /> 지우개
               </button>
             </div>
+
+            <div class="tool-separator"></div>
 
             <div class="tool-group brush-size-slider-box">
               <span>굵기:</span>
               <input type="range" id="brushSizeSlider" min="2" max="45" value="8">
               <span id="brushSizeValue">8px</span>
             </div>
+
+            <div class="tool-separator"></div>
 
             <div class="tool-group">
               <button class="tool-btn" id="btnUndo" title="실행 취소">↩️</button>
@@ -199,7 +203,7 @@
               <span>🎬</span> Animated Drawings (MP4)
             </div>
             
-            <input type="file" id="studioVideoInput" accept="video/mp4,video/webm" style="display:none;">
+            <input type="file" id="studioVideoInput" accept="video/mp4,video/webm,.mp4,.webm" style="display:none;">
             <button type="button" class="btn-blank-canvas" id="btnStudioSelectVideo" style="padding:6px; font-size:1.05rem; background:rgba(255,230,0,0.1); border-color:var(--marker-yellow);">
               <span>📁</span> MP4 비디오 파일 선택
             </button>
@@ -238,9 +242,14 @@
           <h1>미디어월 마스터 관제 대시보드</h1>
           <p>현장 LED 스크린 테마 실시간 제어, 배경 소싱 및 캐릭터 생명주기 관리</p>
         </div>
-        <button class="btn-remove-char" id="btnClearAllChars" style="padding:10px 18px; font-size:0.95rem;">
-          ⚠️ 화면 캐릭터 전체 퇴장
-        </button>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="button" class="btn-action-small" id="btnAdminLogout" style="padding:10px 16px; font-size:0.95rem; background:rgba(255,255,255,0.08); border:1.5px solid rgba(255,255,255,0.3); border-radius:var(--radius-sketch-1); color:#fff; cursor:pointer; font-weight:700;">
+            🔒 관리자 로그아웃
+          </button>
+          <button class="btn-remove-char" id="btnClearAllChars" style="padding:10px 18px; font-size:0.95rem;">
+            ⚠️ 화면 캐릭터 전체 퇴장
+          </button>
+        </div>
       </header>
 
       <div class="admin-grid">
@@ -356,10 +365,10 @@
               <div>
                 <div class="setting-row">
                   <span class="setting-label">최대 동시 표시 수:</span>
-                  <strong style="color:var(--marker-cyan);" id="settingMaxCharsVal">1개</strong>
+                  <strong style="color:var(--marker-cyan);" id="settingMaxCharsVal">12개</strong>
                 </div>
-                <div class="setting-desc">미디어월 전송 시 1개만 집중 표출 (필요 시 조절 가능)</div>
-                <input type="range" id="settingMaxChars" min="1" max="10" step="1" value="1" style="width:100%; margin-top:8px; accent-color:var(--marker-yellow);">
+                <div class="setting-desc">미디어월 화면에 동시 표시할 최대 캐릭터 수 (기본 12개)</div>
+                <input type="range" id="settingMaxChars" min="1" max="20" step="1" value="12" style="width:100%; margin-top:8px; accent-color:var(--marker-yellow);">
               </div>
             </div>
           </div>
@@ -421,6 +430,46 @@
   <!-- 토스트 알림 컨테이너 -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- 마스터 관리자 비밀번호 인증 모달 -->
+  <div class="modal-overlay" id="adminAuthModalOverlay" role="dialog" aria-modal="true">
+    <div class="ai-modal-card" style="max-width:440px; text-align:center;">
+      <div class="ai-modal-header" style="justify-content:center; position:relative;">
+        <div class="ai-modal-title" style="color:var(--marker-yellow); font-size:1.6rem;">
+          🔒 관리자 인증
+        </div>
+        <button class="icon-btn" id="btnCloseAdminAuthModal" style="position:absolute; right:0; top:0;" title="닫기">✕</button>
+      </div>
+
+      <p style="font-size:1.05rem; color:var(--sketch-ink-muted); margin:0;">
+        마스터 관리자 전용 대시보드입니다.<br>비밀번호를 입력해주세요.
+      </p>
+
+      <form id="adminAuthForm" style="display:flex; flex-direction:column; gap:12px; margin-top:6px;">
+        <input type="password" id="inputAdminPassword" class="input-character-name" placeholder="비밀번호 입력" maxlength="10" autocomplete="current-password" style="font-size:1.3rem; letter-spacing:4px; text-align:center; padding:10px 14px;">
+        <div id="adminAuthError" style="display:none; color:#f72585; font-weight:700; font-family:var(--font-sketch); font-size:1.05rem;">
+          ❌ 비밀번호가 올바르지 않습니다.
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button type="button" class="btn-blank-canvas" id="btnCancelAdminAuth" style="flex:1; padding:10px; font-size:1.05rem;">
+            취소
+          </button>
+          <button type="submit" class="btn-ai-convert" id="btnSubmitAdminAuth" style="flex:1; margin:0; padding:10px; font-size:1.1rem; background:var(--marker-cyan); color:#121526; border-color:#000;">
+            확인 🔓
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Socket.io 클라이언트 라이브러리 (서버 자동 제공 + 오프라인 로컬 폴백) -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    if (typeof io === 'undefined') {
+      document.write('<script src="/js/socket.io.min.js"><\/script>');
+    }
+  </script>
+
   <!-- 스크립트 로드 순서 (캐시 버스팅 적용) -->
   <script src="/js/audio.js?v=2"></script>
   <script src="/js/network.js?v=2"></script>
@@ -428,6 +477,6 @@
   <script src="/js/ai-processor.js?v=2"></script>
   <script src="/js/media-wall.js?v=2"></script>
   <script src="/js/admin.js?v=2"></script>
-  <script src="/js/app.js?v=2"></script>
+  <script src="/js/app.js?v=5"></script>
 </body>
 </html>
