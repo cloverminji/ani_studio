@@ -725,21 +725,33 @@ body {
   transform: translateY(-2px) rotate(2deg);
 }
 
-/* 도안 다운로드 버튼 스타일 및 호버 효과 */
+/* 도안 다운로드 버튼 - 지우개 옆에 배치된 조금 더 크고 화사한 핑크색 강조 버튼 */
 #btnDownloadCanvas {
-  background: rgba(6, 214, 160, 0.14);
-  border-color: rgba(6, 214, 160, 0.5);
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #ff2a85 0%, #ff5c9d 100%);
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  box-shadow: 2.5px 2.5px 0px #000, 0 0 10px rgba(255, 42, 133, 0.4);
+  margin-left: 2px;
+}
+
+#btnDownloadCanvas span {
+  font-size: 1.25rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 
 #btnDownloadCanvas:hover {
-  background: rgba(6, 214, 160, 0.35);
-  border-color: var(--marker-green);
-  box-shadow: 2.5px 2.5px 0px #000;
-  transform: translateY(-2px) rotate(-2deg);
+  background: linear-gradient(135deg, #ff4095 0%, #ff75b2 100%);
+  border-color: #ffffff;
+  box-shadow: 3.5px 3.5px 0px #000, 0 0 14px rgba(255, 42, 133, 0.7);
+  transform: translateY(-2px) scale(1.08) rotate(-2deg);
 }
 
 #btnDownloadCanvas:active {
   transform: translateY(1px) scale(0.96);
+  box-shadow: 1.5px 1.5px 0px #000;
 }
 
 /* 좁은 화면/모바일 환경 대응: 2칸(두 줄) 분량 UI 자동 정렬 */

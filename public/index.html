@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=6">
+  <link rel="stylesheet" href="/css/style.css?v=7">
 </head>
 <body>
 
@@ -133,7 +133,7 @@
 
           <!-- 하단 툴바 (사각 테두리 안 최적 균형 & 다운로드 버튼 탑재) -->
           <div class="drawing-toolbar" id="drawingToolbar">
-            <!-- 1. 그리기 도구 (아이콘 전용 & 툴팁 지원) -->
+            <!-- 1. 그리기 도구 (아이콘 전용 & 지우개 옆에 핑크색 다운로드 버튼 배치) -->
             <div class="tool-group tool-group-draw">
               <button class="tool-btn active" id="toolBrush" title="붓 그리기" aria-label="붓">
                 <span>🖌️</span>
@@ -143,6 +143,9 @@
               </button>
               <button class="tool-btn" id="toolEraser" title="지우개" aria-label="지우개">
                 <img src="/images/eraser.png" alt="지우개" class="tool-btn-icon" />
+              </button>
+              <button class="tool-btn btn-download-canvas" id="btnDownloadCanvas" title="색칠한 도안 이미지 다운로드 (PNG 저장)" aria-label="도안 다운로드">
+                <span>📥</span>
               </button>
             </div>
 
@@ -157,12 +160,11 @@
 
             <div class="tool-separator"></div>
 
-            <!-- 3. 작업 액션 (실행취소, 다시실행, 전체지우기, 도안 다운로드) -->
+            <!-- 3. 작업 액션 (실행취소, 다시실행, 전체지우기) -->
             <div class="tool-group tool-group-actions">
               <button class="tool-btn" id="btnUndo" title="실행 취소">↩️</button>
               <button class="tool-btn" id="btnRedo" title="다시 실행">↪️</button>
               <button class="tool-btn btn-clear-canvas" id="btnClearCanvas" title="캔버스 전체 지우기">🗑️</button>
-              <button class="tool-btn btn-download-canvas" id="btnDownloadCanvas" title="색칠한 도안 이미지 다운로드 (PNG 저장)">📥</button>
             </div>
           </div>
         </div>
