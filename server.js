@@ -63,8 +63,12 @@ app.use(express.static(path.join(__dirname, 'public'), staticOptions));
 app.use('/bgimage', express.static(path.join(__dirname, 'bgimage'), staticOptions));
 app.use('/drawing', express.static(path.join(__dirname, 'drawing'), staticOptions));
 const uploadsDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn('⚠️ uploads 디렉토리 생성 건너뜀 (서버리스/읽기전용 환경):', e.message);
 }
 app.use('/uploads', express.static(uploadsDir, staticOptions));
 
@@ -605,12 +609,16 @@ wss.on('connection', (ws) => {
   });
 });
 
-// 주기적 만료 캐릭터 정리 (1분마다)
-setInterval(() => {
-  if (serverConfig && serverConfig.characterLifespan) {
-    db.cleanupExpired(serverConfig.characterLifespan);
-  }
-}, 60000);
+const isServerless = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.LAMBDA_TASK_ROOT);
+
+// 주기적 만료 캐릭터 정리 (독립 실행 서버일 때만 1분마다)
+if (!isServerless && require.main === module) {
+  setInterval(() => {
+    if (serverConfig && serverConfig.characterLifespan) {
+      db.cleanupExpired(serverConfig.characterLifespan);
+    }
+  }, 60000);
+}
 
 // --- 로컬 IP 주소 검색 유틸 ---
 function getAllLocalIps() {
@@ -630,32 +638,40 @@ function getLocalIp() {
   return getAllLocalIps()[0] || 'localhost';
 }
 
-// --- 서버 구동 ---
-httpServer.listen(PORT, '0.0.0.0', () => {
-  const localIp = getLocalIp();
-  console.log('================================================================');
-  console.log('🚀 WagleWagle Studio - AI 미디어월 & 드로잉 실시간 동기화 호스트 서버 구동 완료!');
-  console.log(`📡 HTTP 로컬 주소:       http://localhost:${PORT}`);
-  console.log(`🌐 10대 노트북 접속 주소: http://${localIp}:${PORT}`);
-  console.log(`🖼️ 미디어월 대형화면:    http://${localIp}:${PORT}/wall.html`);
-  console.log(`🎨 학생 드로잉 스튜디오: http://${localIp}:${PORT}/draw.html`);
-  console.log(`⚙️ 마스터 관리자 패널:   http://${localIp}:${PORT}/admin.html`);
-  console.log(`💾 데이터베이스:         SQLite 파일 기반 (data/media_wall.db)`);
-  console.log(`🔄 실시간 동기화:       Socket.io & WebSocket 하이브리드 지원`);
-  console.log('================================================================');
-});
-
-if (httpsServer) {
-  httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+// --- 서버 구동 (독립 프로세스 실행 시에만 포트 리슨) ---
+if (!isServerless && require.main === module) {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     const localIp = getLocalIp();
-    console.log('🔐 [HTTPS] 보안 서버 구동 완료 (Service Worker 완벽 지원):');
-    console.log(`   👉 https://${localIp}:${HTTPS_PORT}`);
+    console.log('================================================================');
+    console.log('🚀 WagleWagle Studio - AI 미디어월 & 드로잉 실시간 동기화 호스트 서버 구동 완료!');
+    console.log(`📡 HTTP 로컬 주소:       http://localhost:${PORT}`);
+    console.log(`🌐 10대 노트북 접속 주소: http://${localIp}:${PORT}`);
+    console.log(`🖼️ 미디어월 대형화면:    http://${localIp}:${PORT}/wall.html`);
+    console.log(`🎨 학생 드로잉 스튜디오: http://${localIp}:${PORT}/draw.html`);
+    console.log(`⚙️ 마스터 관리자 패널:   http://${localIp}:${PORT}/admin.html`);
+    console.log(`💾 데이터베이스:         SQLite 파일 기반 (data/media_wall.db)`);
+    console.log(`🔄 실시간 동기화:       Socket.io & WebSocket 하이브리드 지원`);
     console.log('================================================================');
   });
-} else {
-  console.log('💡 [HTTPS 안내] certs/cert.pem 인증서가 없습니다.');
-  console.log('   Service Worker를 사설 IP(192.168.x.x)에서 완벽히 사용하려면:');
-  console.log('   `npm run cert:gen` 실행 후 서버를 재시작하거나');
-  console.log('   크롬 플래그(chrome://flags/#unsafely-treat-insecure-origin-as-secure)를 설정하세요.');
-  console.log('================================================================');
+
+  if (httpsServer) {
+    httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+      const localIp = getLocalIp();
+      console.log('🔐 [HTTPS] 보안 서버 구동 완료 (Service Worker 완벽 지원):');
+      console.log(`   👉 https://${localIp}:${HTTPS_PORT}`);
+      console.log('================================================================');
+    });
+  } else {
+    console.log('💡 [HTTPS 안내] certs/cert.pem 인증서가 없습니다.');
+    console.log('   Service Worker를 사설 IP(192.168.x.x)에서 완벽히 사용하려면:');
+    console.log('   `npm run cert:gen` 실행 후 서버를 재시작하거나');
+    console.log('   크롬 플래그(chrome://flags/#unsafely-treat-insecure-origin-as-secure)를 설정하세요.');
+    console.log('================================================================');
+  }
 }
+
+// Vercel / 서버리스 및 테스트 환경을 위한 모듈 내보내기
+module.exports = app;
+module.exports.app = app;
+module.exports.httpServer = httpServer;
+

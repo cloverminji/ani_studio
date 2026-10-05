@@ -24,6 +24,7 @@ class DrawingCanvas {
     this.maxHistory = 25;
 
     this.currentTemplateImg = null;
+    this.currentTemplateName = '';
     this.lastX = 0;
     this.lastY = 0;
 
@@ -69,7 +70,8 @@ class DrawingCanvas {
   }
 
   // 도안 이미지 로드 (아웃라인 빈 공백 약 4cm를 자동 제거하여 캐릭터를 캔버스에 큼직하게 렌더링)
-  loadTemplate(imgUrl) {
+  loadTemplate(imgUrl, templateName = '') {
+    this.currentTemplateName = templateName;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
@@ -317,5 +319,36 @@ class DrawingCanvas {
   // 캔버스 이미지 DataURL 추출
   getDataURL() {
     return this.canvas.toDataURL('image/png');
+  }
+
+  // 색칠한 도안 PNG 다운로드 실행
+  downloadImage(customFilename) {
+    const dataUrl = this.getDataURL();
+    if (!dataUrl) return false;
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    
+    let filename = customFilename;
+    if (!filename) {
+      if (this.currentTemplateName) {
+        filename = `${this.currentTemplateName}_색칠_${dateStr}.png`;
+      } else {
+        filename = `도안_그림_${dateStr}.png`;
+      }
+    }
+    if (!filename.toLowerCase().endsWith('.png')) {
+      filename += '.png';
+    }
+
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    return filename;
   }
 }

@@ -616,24 +616,25 @@ body {
   object-fit: contain;
 }
 
-/* 캔버스 하단 툴바 - 도안과 완벽한 너비 균형 및 요소 정렬 */
+/* 캔버스 하단 툴바 - 사각 테두리 안 최적 균형 & 완벽한 프레임 맞춤 */
 .drawing-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
   max-width: 680px;
-  min-width: 460px;
+  min-width: 360px;
   box-sizing: border-box;
   background: var(--bg-card);
   border: 2.5px solid var(--sketch-border);
   border-radius: var(--radius-sketch-1);
-  padding: 5px 12px;
+  padding: 6px 10px;
   gap: 6px;
-  height: 50px;
-  min-height: 50px;
+  min-height: 48px;
+  height: auto;
   box-shadow: var(--sketch-shadow);
   transition: width 0.15s ease, max-width 0.15s ease;
+  flex-wrap: wrap;
 }
 
 .tool-group {
@@ -646,29 +647,31 @@ body {
 /* 툴바 그룹 간 스케치 스타일 세로 구분선 */
 .tool-separator {
   width: 1.5px;
-  height: 22px;
+  height: 24px;
   background: var(--sketch-border);
   opacity: 0.35;
   margin: 0 1px;
   flex-shrink: 0;
 }
 
+/* 정사각 아이콘 버튼 (붓, 채우기, 지우개, Undo, Redo, 휴지통, 다운로드) */
 .tool-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid var(--sketch-border);
   color: #fff;
-  padding: 4px 8px;
-  min-width: 58px;
-  height: 35px;
+  padding: 0;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
   border-radius: var(--radius-sketch-1);
   font-family: var(--font-sketch);
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 0;
   white-space: nowrap;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -678,17 +681,19 @@ body {
 
 .tool-btn span,
 .tool-btn-icon {
-  font-size: 1rem;
+  font-size: 1.1rem;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .tool-btn-icon {
-  width: 18px;
-  height: 18px;
+  width: 21px;
+  height: 21px;
   object-fit: contain;
   vertical-align: middle;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
 }
 
 .tool-btn:hover {
@@ -702,23 +707,66 @@ body {
   border-color: #000;
   box-shadow: 2.5px 2.5px 0px #000;
   font-weight: 700;
-  transform: rotate(-1.5deg) scale(1.04);
+  transform: rotate(-1.5deg) scale(1.05);
 }
 
-/* 실행취소/다시실행/전체지우기 액션 단추 */
-.tool-group:last-child .tool-btn {
-  min-width: 34px;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  font-size: 0.95rem;
+/* 실행취소/다시실행/전체지우기/다운로드 액션 단추 */
+.tool-group-actions .tool-btn {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  font-size: 1.05rem;
 }
 
-/* 휴지통 버튼 호버 시 포인트 효과 */
+/* 휴지통 버튼 (전체 지우기) 호버 시 경고 포인트 효과 */
 #btnClearCanvas:hover {
   background: rgba(239, 71, 111, 0.3);
   border-color: var(--marker-pink);
   transform: translateY(-2px) rotate(2deg);
+}
+
+/* 도안 다운로드 버튼 스타일 및 호버 효과 */
+#btnDownloadCanvas {
+  background: rgba(6, 214, 160, 0.14);
+  border-color: rgba(6, 214, 160, 0.5);
+}
+
+#btnDownloadCanvas:hover {
+  background: rgba(6, 214, 160, 0.35);
+  border-color: var(--marker-green);
+  box-shadow: 2.5px 2.5px 0px #000;
+  transform: translateY(-2px) rotate(-2deg);
+}
+
+#btnDownloadCanvas:active {
+  transform: translateY(1px) scale(0.96);
+}
+
+/* 좁은 화면/모바일 환경 대응: 2칸(두 줄) 분량 UI 자동 정렬 */
+@media (max-width: 460px) {
+  .drawing-toolbar {
+    justify-content: center;
+    gap: 8px 10px;
+    padding: 8px;
+  }
+
+  .brush-size-slider-box {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    border-top: 1px dashed rgba(255, 255, 255, 0.15);
+    padding-top: 6px;
+    margin-top: 2px;
+  }
+
+  .brush-size-slider-box input[type="range"] {
+    flex: 1;
+    max-width: 180px;
+  }
+
+  .tool-separator {
+    display: none;
+  }
 }
 
 /* 팔레트 패널 (우측 폭 2cm 확장에 맞춘 그리드) */

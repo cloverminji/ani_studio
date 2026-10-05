@@ -104,7 +104,7 @@ async function loadDrawingsList(drawingCanvas, keepCurrent = false) {
         card.addEventListener('click', () => {
           document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
           card.classList.add('active');
-          drawingCanvas.loadTemplate(draw.url);
+          drawingCanvas.loadTemplate(draw.url, draw.name);
           if (window.soundEngine) window.soundEngine.playPopSound();
         });
 
@@ -113,7 +113,7 @@ async function loadDrawingsList(drawingCanvas, keepCurrent = false) {
 
       // 첫 번째 도안 기본 로드 (초기 진입 시에만)
       if (!keepCurrent) {
-        drawingCanvas.loadTemplate(data.drawings[0].url);
+        drawingCanvas.loadTemplate(data.drawings[0].url, data.drawings[0].name);
       }
     }
   } catch (e) {
@@ -126,6 +126,7 @@ async function loadDrawingsList(drawingCanvas, keepCurrent = false) {
     btnBlank.addEventListener('click', () => {
       document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
       drawingCanvas.clearCanvas(true);
+      drawingCanvas.currentTemplateName = '자유그리기';
       if (window.soundEngine) window.soundEngine.playPopSound();
     });
   }
@@ -219,13 +220,36 @@ function setupPaletteAndTools(drawingCanvas) {
     if (window.soundEngine) window.soundEngine.playPopSound();
   });
 
-  // 캔버스 초기화
+  // 캔버스 초기화 (전체 지우기)
   const btnClear = document.getElementById('btnClearCanvas');
   if (btnClear) {
     btnClear.addEventListener('click', () => {
       if (confirm('캔버스 그림을 모두 지우시겠습니까?')) {
         drawingCanvas.clearCanvas(true);
         drawingCanvas.saveState();
+      }
+    });
+  }
+
+  // 색칠한 도안 PNG 다운로드
+  const btnDownload = document.getElementById('btnDownloadCanvas');
+  if (btnDownload) {
+    btnDownload.addEventListener('click', () => {
+      try {
+        const charNameInput = document.getElementById('inputCharName');
+        const customName = charNameInput ? charNameInput.value.trim() : '';
+        const savedFile = drawingCanvas.downloadImage(customName);
+        if (savedFile) {
+          if (window.soundEngine) window.soundEngine.playPopSound();
+          if (window.showToast) {
+            window.showToast(`💾 "${savedFile}" 파일로 도안이 저장되었습니다!`);
+          }
+        } else {
+          alert('저장할 캔버스 이미지가 없습니다.');
+        }
+      } catch (err) {
+        console.error('도안 다운로드 중 오류 발생:', err);
+        alert('도안 다운로드 중 오류가 발생했습니다.');
       }
     });
   }
@@ -237,8 +261,8 @@ function setupPaletteAndTools(drawingCanvas) {
     const syncToolbarWidth = () => {
       const frameWidth = canvasFrame.offsetWidth;
       if (frameWidth > 0) {
-        // 도안 프레임 폭과 정확하게 1:1로 일치시킴 (도안이 좁을 때 최소 480px 보장)
-        const targetWidth = Math.max(frameWidth, 480);
+        // 도안 프레임 폭과 조화롭게 1:1 일치 (기본 최소 400px, 프레임이 더 넓으면 프레임 폭에 맞춤)
+        const targetWidth = Math.max(frameWidth, 400);
         toolbar.style.width = `${targetWidth}px`;
         toolbar.style.maxWidth = `${targetWidth}px`;
       }

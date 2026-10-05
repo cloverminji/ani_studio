@@ -5,9 +5,69 @@
  *   활성 캐릭터 목록이 영구 보존됩니다.
  */
 
-const Database = require('better-sqlite3');
+let Database = null;
+try {
+  Database = require('better-sqlite3');
+} catch (e) {
+  console.warn('⚠️ better-sqlite3 모듈을 로드할 수 없습니다 (서버리스 환경). 인메모리 모드로 동작합니다.');
+}
+
 const path = require('path');
 const fs = require('fs');
+
+/**
+ * 서버리스/Vercel 환경용 인메모리 데이터베이스 폴백
+ */
+class InMemoryDB {
+  constructor() {
+    this.settings = new Map();
+    this.characters = new Map();
+  }
+
+  getSetting(key, defaultValue = null) {
+    return this.settings.has(key) ? this.settings.get(key) : defaultValue;
+  }
+
+  setSetting(key, value) {
+    this.settings.set(key, value);
+  }
+
+  getActiveCharacters() {
+    return Array.from(this.characters.values()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  }
+
+  saveCharacter(char, maxLimit = 12) {
+    this.characters.set(char.id, char);
+    this.trimCharacters(maxLimit);
+  }
+
+  removeCharacter(characterId) {
+    this.characters.delete(characterId);
+  }
+
+  clearCharacters() {
+    this.characters.clear();
+  }
+
+  trimCharacters(maxLimit = 12) {
+    while (this.characters.size > maxLimit) {
+      const oldestKey = this.characters.keys().next().value;
+      this.characters.delete(oldestKey);
+    }
+  }
+
+  cleanupExpired(lifespanSeconds) {
+    if (!lifespanSeconds || lifespanSeconds <= 0) return;
+    const expireTime = Date.now() - (lifespanSeconds * 1000);
+    for (const [id, char] of this.characters.entries()) {
+      if ((char.createdAt || 0) < expireTime) {
+        this.characters.delete(id);
+      }
+    }
+  }
+
+  close() {}
+}
 
 class MediaWallDB {
   constructor(dbPath) {
@@ -172,8 +232,20 @@ class MediaWallDB {
   }
 }
 
-// 싱글톤 DB 인스턴스 생성
-const dbFilePath = path.join(__dirname, 'data', 'media_wall.db');
-const mediaWallDB = new MediaWallDB(dbFilePath);
+// 싱글톤 DB 인스턴스 생성 (로컬 환경: SQLite 파일 DB, Vercel/서버리스 환경: 인메모리 DB)
+let mediaWallDB;
+const isServerless = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.LAMBDA_TASK_ROOT);
+
+if (Database && !isServerless) {
+  try {
+    const dbFilePath = path.join(__dirname, 'data', 'media_wall.db');
+    mediaWallDB = new MediaWallDB(dbFilePath);
+  } catch (err) {
+    console.warn('⚠️ SQLite DB 파일 생성 불가, 인메모리 DB로 전환합니다:', err.message);
+    mediaWallDB = new InMemoryDB();
+  }
+} else {
+  mediaWallDB = new InMemoryDB();
+}
 
 module.exports = mediaWallDB;
