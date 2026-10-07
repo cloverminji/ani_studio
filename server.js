@@ -657,7 +657,9 @@ if (!isServerless && require.main === module) {
     console.log(`🎨 학생 드로잉 스튜디오: http://${localIp}:${PORT}/draw.html`);
     console.log(`⚙️ 마스터 관리자 패널:   http://${localIp}:${PORT}/admin.html`);
     console.log(`💾 데이터베이스:         SQLite 파일 기반 (data/media_wall.db)`);
+    console.log(`⏱️ 전시 표준 설정:       체류수명 20분(1200초) | 동시 최대 15개 수용`);
     console.log(`🔄 실시간 동기화:       Socket.io & WebSocket 하이브리드 지원`);
+    console.log('💡 [로컬 필수 권장]      호스트 PC의 Windows 절전 모드를 해제해 주세요.');
     console.log('================================================================');
   });
 
