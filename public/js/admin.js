@@ -14,8 +14,8 @@ class AdminDashboard {
     this.currentTheme = null;
     this.characters = [];
     this.config = {
-      characterLifespan: 900,
-      maxCharacters: 12
+      characterLifespan: 1200,
+      maxCharacters: 15
     };
 
     this.initElements();

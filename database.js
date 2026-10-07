@@ -36,7 +36,7 @@ class InMemoryDB {
     return Array.from(this.characters.values()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   }
 
-  saveCharacter(char, maxLimit = 12) {
+  saveCharacter(char, maxLimit = 15) {
     this.characters.set(char.id, char);
     this.trimCharacters(maxLimit);
   }
@@ -49,7 +49,7 @@ class InMemoryDB {
     this.characters.clear();
   }
 
-  trimCharacters(maxLimit = 12) {
+  trimCharacters(maxLimit = 15) {
     while (this.characters.size > maxLimit) {
       const oldestKey = this.characters.keys().next().value;
       this.characters.delete(oldestKey);
@@ -196,7 +196,7 @@ class MediaWallDB {
     }
   }
 
-  trimCharacters(maxLimit = 12) {
+  trimCharacters(maxLimit = 15) {
     try {
       const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM characters');
       const { count } = countStmt.get();

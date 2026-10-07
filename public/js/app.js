@@ -78,7 +78,67 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 11. 미디어월 컨트롤 버튼 (전체화면, HUD 토글, 음소거)
   setupWallControls(mediaWall);
+
+  // 12. Render 무료 호스팅 슬립 방지 (한국시간 AM 8:00 ~ PM 3:00 운영)
+  initRenderKeepAlive();
 });
+
+/**
+ * Render 무료 호스팅 슬립 방지 (Keep-Alive Ping)
+ * - 조건: 한국 시간(KST, UTC+9) 오전 8시 ~ 오후 3시 (08:00 ~ 15:00)
+ * - 주기: 5분 (300,000ms)
+ * - 대상: /api/system-info
+ */
+function isKstWorkingHours() {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Seoul',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    let hour = 0;
+    let minute = 0;
+    for (const p of parts) {
+      if (p.type === 'hour') hour = parseInt(p.value, 10);
+      if (p.type === 'minute') minute = parseInt(p.value, 10);
+    }
+    // 한국 시간 AM 8:00 ~ PM 15:00 (15시 00분까지 포함)
+    return (hour >= 8 && hour < 15) || (hour === 15 && minute === 0);
+  } catch (e) {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const kstDate = new Date(utc + (9 * 3600000));
+    const hour = kstDate.getHours();
+    const minute = kstDate.getMinutes();
+    return (hour >= 8 && hour < 15) || (hour === 15 && minute === 0);
+  }
+}
+
+function initRenderKeepAlive() {
+  const PING_INTERVAL_MS = 5 * 60 * 1000; // 5분마다 점검
+
+  const checkAndPing = async () => {
+    if (isKstWorkingHours()) {
+      try {
+        const res = await fetch('/api/system-info?keepalive=render_free_tier');
+        if (res.ok) {
+          console.log(`[Keep-Alive ☀️] KST 운영시간(AM 08:00~PM 15:00) Render 슬립방지 Ping 전송 성공 (${new Date().toLocaleTimeString('ko-KR')})`);
+        }
+      } catch (err) {
+        console.warn('[Keep-Alive] Ping 일시 오류:', err.message);
+      }
+    } else {
+      console.log(`[Keep-Alive 🌙] KST 운영 외 시간대 (Render 무료 750시간 절약을 위해 슬립 허용 중)`);
+    }
+  };
+
+  // 초기 1.5초 후 1회 체크, 이후 5분 주기 반복
+  setTimeout(checkAndPing, 1500);
+  setInterval(checkAndPing, PING_INTERVAL_MS);
+}
 
 /**
  * 기본 도안 목록 로드 및 그리드 구성
@@ -97,7 +157,7 @@ async function loadDrawingsList(drawingCanvas, keepCurrent = false) {
         const card = document.createElement('div');
         card.className = `template-card ${idx === 0 ? 'active' : ''}`;
         card.innerHTML = `
-          <img src="${draw.url}" alt="${draw.name}" />
+          <img src="${draw.url}" alt="${draw.name}" loading="lazy" decoding="async" />
           <span class="template-name">${draw.name}</span>
         `;
 

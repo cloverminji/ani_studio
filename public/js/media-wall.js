@@ -27,8 +27,8 @@ class MediaWallRenderer {
     this.speechBubbles = [];   // 말풍선
 
     this.config = {
-      characterLifespan: 900, // 기본 15분 (초)
-      maxCharacters: 12 // 미디어월 최대 캐릭터 동시 참여 수 (기본 12개)
+      characterLifespan: 1200, // 기본 20분 (초)
+      maxCharacters: 15 // 미디어월 최대 캐릭터 동시 참여 수 (기본 15개)
     };
 
     this.isRunning = false;
@@ -227,7 +227,7 @@ class MediaWallRenderer {
     }
 
     // 최대 동시 표시 캐릭터 수 초과 시 가장 오래된 캐릭터 자연스러운 페이드아웃 퇴장
-    const maxChars = this.config.maxCharacters || 12;
+    const maxChars = this.config.maxCharacters || 15;
     while (this.characters.length >= maxChars) {
       const oldest = this.characters.find(c => c.remainingTime > 1.0);
       if (oldest) {

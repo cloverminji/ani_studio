@@ -47,6 +47,9 @@ const staticOptions = {
     if (filePath.endsWith('sw.js')) {
       res.set('Service-Worker-Allowed', '/');
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else if (filePath.match(/\.(png|jpe?g|webp|svg|ico)$/i)) {
+      // 이미지 에셋(도안, 배경)은 브라우저 캐싱 적용 (1일)하여 Render 무료 대역폭 95% 절약
+      res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     }
   }
 };
@@ -81,20 +84,21 @@ const DEFAULT_THEME = {
 };
 
 const DEFAULT_CONFIG = {
-  characterLifespan: 900, // 15분 (초)
-  maxCharacters: 12       // 최대 동시 표시수 (기본 12개)
+  characterLifespan: 1200, // 20분 (초)
+  maxCharacters: 15       // 최대 동시 표시수 (기본 15개)
 };
 
 let currentTheme = db.getSetting('theme', DEFAULT_THEME);
 let serverConfig = db.getSetting('config', DEFAULT_CONFIG);
-// 혹시 maxCharacters가 미설정된 경우 12로 보장
-if (!serverConfig.maxCharacters) serverConfig.maxCharacters = 12;
+// 혹시 maxCharacters가 15 미만 또는 미설정된 경우 15로 보장
+if (!serverConfig.maxCharacters || serverConfig.maxCharacters < 15) serverConfig.maxCharacters = 15;
+if (!serverConfig.characterLifespan || serverConfig.characterLifespan < 1200) serverConfig.characterLifespan = 1200;
 
 // 만료된 캐릭터 1차 정리 후 활성 캐릭터 복원
 db.cleanupExpired(serverConfig.characterLifespan);
 let activeCharacters = db.getActiveCharacters();
 
-console.log(`📦 [SQLite DB] 데이터 복원 완료: 현재 테마 '${currentTheme.name}', 최대 표시수: ${serverConfig.maxCharacters}개, 복원된 캐릭터: ${activeCharacters.length}개`);
+console.log(`📦 [SQLite DB] 데이터 복원 완료: 현재 테마 '${currentTheme.name}', 최대 표시수: ${serverConfig.maxCharacters}개, 체류수명: ${Math.round(serverConfig.characterLifespan/60)}분, 복원된 캐릭터: ${activeCharacters.length}개`);
 
 // --- REST API 엔드포인트 ---
 
@@ -502,11 +506,11 @@ io.on('connection', (socket) => {
 
     if (!activeCharacters.some(c => c.id === char.id)) {
       activeCharacters.push(char);
-      while (activeCharacters.length > (serverConfig.maxCharacters || 12)) {
+      while (activeCharacters.length > (serverConfig.maxCharacters || 15)) {
         activeCharacters.shift();
       }
       // SQLite DB에 즉시 영구 저장
-      db.saveCharacter(char, serverConfig.maxCharacters || 12);
+      db.saveCharacter(char, serverConfig.maxCharacters || 15);
     }
 
     // 송신자(socket)를 제외한 나머지 9대 노트북 및 미디어월 화면에 즉각 실시간 반영
@@ -525,7 +529,7 @@ io.on('connection', (socket) => {
   socket.on('config_update', (data) => {
     if (!data.config) return;
     serverConfig = { ...serverConfig, ...data.config };
-    if (!serverConfig.maxCharacters) serverConfig.maxCharacters = 12;
+    if (!serverConfig.maxCharacters) serverConfig.maxCharacters = 15;
 
     db.setSetting('config', serverConfig);
     db.trimCharacters(serverConfig.maxCharacters);
@@ -569,10 +573,10 @@ wss.on('connection', (ws) => {
       switch (data.type) {
         case 'character_spawn':
           activeCharacters.push(data.character);
-          while (activeCharacters.length > (serverConfig.maxCharacters || 12)) {
+          while (activeCharacters.length > (serverConfig.maxCharacters || 15)) {
             activeCharacters.shift();
           }
-          db.saveCharacter(data.character, serverConfig.maxCharacters || 12);
+          db.saveCharacter(data.character, serverConfig.maxCharacters || 15);
           broadcastAll('character_spawn', { character: data.character });
           break;
 
@@ -584,7 +588,7 @@ wss.on('connection', (ws) => {
 
         case 'config_update':
           serverConfig = { ...serverConfig, ...data.config };
-          if (!serverConfig.maxCharacters) serverConfig.maxCharacters = 12;
+          if (!serverConfig.maxCharacters) serverConfig.maxCharacters = 15;
           db.setSetting('config', serverConfig);
           db.trimCharacters(serverConfig.maxCharacters);
           activeCharacters = db.getActiveCharacters();

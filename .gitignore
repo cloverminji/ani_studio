@@ -10,3 +10,4 @@ certs/
 temp_edge/
 public/uploads/*
 !public/uploads/.gitkeep
+drawing_backup/
