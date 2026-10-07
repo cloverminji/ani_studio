@@ -88,7 +88,7 @@ async function loadDrawingsList(drawingCanvas, keepCurrent = false) {
   if (!grid) return;
 
   try {
-    const res = await fetch('/api/drawings');
+    const res = await fetch(`/api/drawings?_t=${Date.now()}`);
     const data = await res.json();
 
     if (data.success && data.drawings.length > 0) {

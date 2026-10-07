@@ -255,11 +255,14 @@ app.delete('/api/themes/:filename', (req, res) => {
 // 2. 기본 도안(drawing) 목록 조회 API
 app.get('/api/drawings', (req, res) => {
   try {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     const drawDir = path.join(__dirname, 'drawing');
     if (!fs.existsSync(drawDir)) {
       return res.json({ success: true, drawings: [] });
     }
-    const files = fs.readdirSync(drawDir).filter(f => /\.(png|jpe?g|webp)$/i.test(f));
+    const files = fs.readdirSync(drawDir)
+      .filter(f => /\.(png|jpe?g|webp)$/i.test(f))
+      .sort((a, b) => a.localeCompare(b, 'ko', { numeric: true, sensitivity: 'base' }));
     const drawings = files.map((file, idx) => {
       const name = path.parse(file).name;
       return {

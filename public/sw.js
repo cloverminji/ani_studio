@@ -3,7 +3,7 @@
  * 오프라인 사설 네트워크(10대 노트북) 환경을 위한 고성능 캐싱 및 네트워크 분기
  */
 
-const CACHE_NAME = 'media-wall-offline-v7';
+const CACHE_NAME = 'media-wall-offline-v8';
 
 // 1. 초기 설치 시 사전 캐싱할 필수 정적 에셋 목록
 const PRECACHE_ASSETS = [

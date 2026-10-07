@@ -381,7 +381,7 @@ class AdminDashboard {
 
   async loadDrawings() {
     try {
-      const res = await fetch('/api/drawings');
+      const res = await fetch(`/api/drawings?_t=${Date.now()}`);
       const data = await res.json();
       if (data.success) {
         this.drawings = data.drawings;
