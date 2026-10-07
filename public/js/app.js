@@ -314,6 +314,87 @@ function setupPaletteAndTools(drawingCanvas) {
     });
   }
 
+  // 색칠한 도안 PNG 업로드 및 캔버스 복원 (미디어월 전송 연동)
+  const btnUpload = document.getElementById('btnUploadCanvas');
+  const btnUploadSidebar = document.getElementById('btnUploadCanvasSidebar');
+  const inputUpload = document.getElementById('inputUploadCanvas');
+
+  const handleUploadedImageFile = async (file) => {
+    if (!file || !file.type.match(/^image\//)) {
+      alert('PNG 또는 이미지 파일만 불러올 수 있습니다.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const dataUrl = e.target.result;
+        const cleanName = await drawingCanvas.loadUserImage(dataUrl, file.name);
+
+        // 템플릿 카드 선택 해제
+        document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
+
+        // 캐릭터 이름 입력창에 파일명 자동 반영
+        const charNameInput = document.getElementById('inputCharName');
+        if (charNameInput) {
+          charNameInput.value = cleanName;
+        }
+
+        if (window.soundEngine) window.soundEngine.playPopSound();
+        if (window.showToast) {
+          window.showToast(`🎉 "${cleanName}" 도안을 불러왔습니다! 이제 [AI 애니메이션 만들기]를 눌러 미디어월로 전송해보세요.`);
+        }
+      } catch (err) {
+        console.error('이미지 로드 실패:', err);
+        alert('도안 이미지를 불러오는 중 오류가 발생했습니다.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  if (inputUpload) {
+    inputUpload.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        handleUploadedImageFile(file);
+      }
+      inputUpload.value = '';
+    });
+  }
+
+  if (btnUpload && inputUpload) {
+    btnUpload.addEventListener('click', () => {
+      inputUpload.click();
+    });
+  }
+
+  if (btnUploadSidebar && inputUpload) {
+    btnUploadSidebar.addEventListener('click', () => {
+      inputUpload.click();
+    });
+  }
+
+  // 캔버스 프레임 드래그 앤 드롭 지원
+  const canvasFrameEl = document.querySelector('.canvas-frame');
+  if (canvasFrameEl) {
+    canvasFrameEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      canvasFrameEl.style.outline = '3px dashed var(--marker-cyan)';
+    });
+    canvasFrameEl.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      canvasFrameEl.style.outline = '';
+    });
+    canvasFrameEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      canvasFrameEl.style.outline = '';
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) {
+        handleUploadedImageFile(file);
+      }
+    });
+  }
+
   // 도안(캔버스 프레임)과 하단 툴바의 너비 및 배치 균형 완벽 동기화
   const canvasFrame = document.querySelector('.canvas-frame');
   const toolbar = document.getElementById('drawingToolbar') || document.querySelector('.drawing-toolbar');

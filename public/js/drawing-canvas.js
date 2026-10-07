@@ -351,4 +351,55 @@ class DrawingCanvas {
 
     return filename;
   }
+
+  // 색칠 후 다운로드했던 외부 PNG 도안 파일 로드 및 캔버스 복원
+  loadUserImage(dataUrl, filename = '') {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        this.currentTemplateImg = img;
+
+        // 파일명에서 캐릭터 이름 깔끔하게 추출 (예: '바다거북_색칠_20261007_123456.png' -> '바다거북')
+        let cleanName = filename
+          .replace(/\.[^/.]+$/, '')
+          .replace(/_색칠_\d+(_\d+)?$/, '')
+          .replace(/_색칠$/, '')
+          .replace(/^도안_그림_\d+(_\d+)?$/, '내 캐릭터')
+          .trim();
+
+        if (!cleanName) cleanName = '불러온 캐릭터';
+        this.currentTemplateName = cleanName;
+
+        // 캔버스 흰 배경 초기화
+        this.clearCanvas(true);
+
+        // 800x800 규격과 동일할 경우 1:1 완벽 복원
+        if (img.width === this.canvas.width && img.height === this.canvas.height) {
+          this.ctx.drawImage(img, 0, 0);
+        } else {
+          // 크기가 다른 일반 이미지인 경우 종횡비 유지하며 캔버스 중심에 큼직하게 렌더링
+          const padding = 16;
+          const maxWidth = this.canvas.width - padding * 2;
+          const maxHeight = this.canvas.height - padding * 2;
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          const renderW = img.width * ratio;
+          const renderH = img.height * ratio;
+          const renderX = (this.canvas.width - renderW) / 2;
+          const renderY = (this.canvas.height - renderH) / 2;
+          this.ctx.drawImage(img, renderX, renderY, renderW, renderH);
+        }
+
+        this.saveState();
+        resolve(cleanName);
+      };
+
+      img.onerror = (err) => {
+        console.error('User image load error:', err);
+        reject(err);
+      };
+
+      img.src = dataUrl;
+    });
+  }
 }
+
